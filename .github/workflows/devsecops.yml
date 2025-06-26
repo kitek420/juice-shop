@@ -1,1 +1,1 @@
-
+docker build -t juice-shop:latest .
