@@ -22,8 +22,12 @@ jobs:
       run: npm install
 
     - name: Fix it please
-      run: nmp audit fix --force || true
-    
+      run: npm audit fix --force || true
+      
+  SCA:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
     - name: SCA
       run: |
         npm audit --audit-level moderate | tee sca-report.txt || true
