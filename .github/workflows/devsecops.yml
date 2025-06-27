@@ -46,7 +46,9 @@ jobs:
         path: sca-report.txt
     
     - name: Run unit tests
-      run: npm test
+      run: |
+        export CHROME_BIN=/usr/bin/google-chrome
+        npm test -- --browsers=ChromeHeadlessNoSandbox --single-run --timeout=60000
     
     - name: Build Docker image
       run: |
