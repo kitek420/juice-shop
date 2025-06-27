@@ -25,9 +25,6 @@ jobs:
     - name: Run unit tests
       run: npm test
     
-    - name: Build application
-      run: npm run build
-    
     - name: Build Docker image
       run: |
         docker build -t juice-shop:${{ github.sha }} .
