@@ -1,4 +1,3 @@
-
 name: Mini Projekt DevSecOps
 on:
   push:
@@ -6,7 +5,7 @@ on:
   pull_request:
     branches: [ master ]
 jobs:
-  build-and-test:
+  wszystko-na-raz-poki-co:
     runs-on: ubuntu-latest
     
     steps:
@@ -23,11 +22,7 @@ jobs:
 
     - name: Fix it please
       run: npm audit fix --force || true
-      
-  SCA:
-    runs-on: ubuntu-latest
-    needs: build-and-test
-    steps:
+    
     - name: SCA
       run: |
         npm audit --audit-level moderate | tee sca-report.txt || true
