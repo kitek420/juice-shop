@@ -21,7 +21,11 @@ jobs:
       run: npm install
 
     - name: Fix it please
-      run: npm audit fix --force || true
+      run: |
+        npm audit fix
+        npm audit fix --force
+        npm update
+        npm audit fix --force
     
     - name: SCA
       run: |
