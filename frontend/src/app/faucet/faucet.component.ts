@@ -22,6 +22,8 @@ import { NgIf } from '@angular/common'
 import { MatButtonModule } from '@angular/material/button'
 import { MatCardModule } from '@angular/material/card'
 import { MatIconModule } from '@angular/material/icon'
+import { environment } from 'src/environments/environment'
+
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const client = createClient({
@@ -30,9 +32,10 @@ const client = createClient({
 })
 const { ethereum } = window
 
-const nftAddress = '0x41427790c94E7a592B17ad694eD9c06A02bb9C39'
-const BeeTokenAddress = '0x36435796Ca9be2bf150CE0dECc2D8Fab5C4d6E13'
-const BeeFaucetAddress = '0x860e3616aD0E0dEDc23352891f3E10C4131EA5BC'
+const nftAddress = environment.nftAddress
+const BeeTokenAddress = environment.beeTokenAddress
+const BeeFaucetAddress = environment.beeFaucetAddress
+
 
 @Component({
   selector: 'app-faucet',
