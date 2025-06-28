@@ -4,43 +4,38 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
-
 jobs:
-  build-and-test:
+  cokolwiek:
     runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v3
     
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v3
       with:
         node-version: '18'
-        cache: 'npm'
     
     - name: Install dependencies
-      run: |
-        npm install -g npm@9.8.1
-        npm install --ignore-scripts --legacy-peer-deps --force
+      run: npm install
     
-    - name: Install frontend dependencies
-      run: |
-        cd frontend
-        npm install --legacy-peer-deps --force
-        cd ..
-    
-    - name: SCA Analysis
+    - name: SCA
       run: |
         npm audit --audit-level moderate | tee sca-report.txt || true
+        echo "" | tee -a sca-report.txt
         npm outdated | tee -a sca-report.txt || true
+        echo "" | tee -a sca-report.txt
         npm ls --depth=1 | tee -a sca-report.txt || true
     
     - name: Check for critical vulnerabilities
       run: |
         AUDIT_RESULT=$(npm audit --audit-level high --json 2>/dev/null || echo '{"metadata":{"vulnerabilities":{"total":0}}}')
-        VULN_COUNT=$(echo $AUDIT_RESULT | jq -r '.metadata.vulnerabilities.total // 0' 2>/dev/null || echo "0")
+        VULN_COUNT=$(echo $AUDIT_RESULT | grep -o '"total":[0-9]*' | head -1 | cut -d':' -f2 || echo "0")
         
+        if [ "${VULN_COUNT:-0}" -gt 0 ]; then
+          echo "Found $VULN_COUNT high/critical vulnerabilities"
+        fi
     
     - name: Upload SCA report
       uses: actions/upload-artifact@v4
@@ -49,28 +44,20 @@ jobs:
         name: sca-security-report
         path: sca-report.txt
     
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+    - name: Run unit tests
+      run: |
+        export CHROME_BIN=/usr/bin/google-chrome
+        npm test -- --browsers=ChromeHeadlessNoSandbox --single-run --timeout=60000
     
     - name: Build Docker image
       run: |
-        docker build -t juice-shop:${{ github.sha }} . --no-cache
+        docker build -t juice-shop:${{ github.sha }} .
         docker tag juice-shop:${{ github.sha }} juice-shop:latest
     
     - name: Test Docker container
       run: |
         docker run -d -p 3000:3000 --name juice-shop-test juice-shop:latest
-        sleep 30
-        for i in {1..10}; do
-          if curl -f http://localhost:3000 > /dev/null 2>&1; then
-            echo "Application is running"
-            break
-          fi
-          echo "Waiting for application to start... ($i/10)"
-          sleep 10
-        done
-        
+        sleep 10
         curl -f http://localhost:3000 || exit 1
-        
         docker stop juice-shop-test
         docker rm juice-shop-test
