@@ -27,15 +27,6 @@ jobs:
         npm outdated | tee -a sca-report.txt || true
         echo "" | tee -a sca-report.txt
         npm ls --depth=1 | tee -a sca-report.txt || true
-
-    - name: Check for critical vulnerabilities
-      run: |
-        AUDIT_RESULT=$(npm audit --audit-level high --json 2>/dev/null || echo '{"metadata":{"vulnerabilities":{"total":0}}}')
-        VULN_COUNT=$(echo $AUDIT_RESULT | grep -o '"total":[0-9]*' | head -1 | cut -d':' -f2 || echo "0")
-        
-        if [ "${VULN_COUNT:-0}" -gt 0 ]; then
-          echo "Found $VULN_COUNT high/critical vulnerabilities"
-        fi
     
     - name: Upload SCA report
       uses: actions/upload-artifact@v4
@@ -44,19 +35,28 @@ jobs:
         name: sca-security-report
         path: sca-report.txt
 
-    - name: Run Semgrep SAST scan
+    - name: SAST
       uses: returntocorp/semgrep-action@v1
       with:
         config: auto
         generateSarif: true
       continue-on-error: true
 
-    - name: Upload SAST report
+    - name: Secrets Scan
+      uses: gitleaks/gitleaks-action@v2
+      continue-on-error: true
+      with:
+        scan-dir: .
+        report-format: sarif
+        report-path: gitleaks.sarif
+
+    - name: Upload SecretsScan report
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: sast-semgrep-report
-        path: semgrep.sarif
+        name: secretscan-gitleaks-report
+        path: gitleaks.sarif
+
 
     - name: Run unit tests
       run: |
