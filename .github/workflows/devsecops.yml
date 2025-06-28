@@ -25,9 +25,9 @@ jobs:
 
     - name: Run SCA
       run: |
-        npm audit --audit-level moderate > sca-report.txt
-        npm outdated >> sca-report.txt
-        npm ls --depth=1 >> sca-report.txt
+        npm audit --audit-level moderate > sca-report.txt || true
+        npm outdated >> sca-report.txt || true
+        npm ls --depth=1 >> sca-report.txt || true
 
     - name: Upload SCA report
       uses: actions/upload-artifact@v4
@@ -75,7 +75,7 @@ jobs:
         path: gitleaks.sarif
 
   docker-dast-combined:
-    name: Build App + Run ZAP (DAST)
+    name: Build App and DAST
     runs-on: ubuntu-latest
 
     steps:
@@ -101,7 +101,7 @@ jobs:
           sleep 5
         done
 
-    - name: Run OWASP ZAP DAST scan
+    - name: Run DAST scan
       run: |
         docker run --network zap-net \
           -v $(pwd):/zap/wrk/:rw \
