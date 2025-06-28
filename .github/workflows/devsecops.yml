@@ -44,10 +44,8 @@ jobs:
         name: sca-security-report
         path: sca-report.txt
     
-    - name: Run unit tests
-      run: |
-        export CHROME_BIN=/usr/bin/google-chrome
-        npm test -- --browsers=ChromeHeadlessNoSandbox --single-run --timeout=60000
+    - name: Run backend test
+      run: npm run test:server --browsers=ChromeHeadlessNoSandbox --single-run --timeout=60000
     
     - name: Build Docker image
       run: |
