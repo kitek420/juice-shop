@@ -75,8 +75,8 @@ jobs:
         path: gitleaks.sarif
 
 
-  docker-dast-combined:
-    name: Build App and DAST
+  everything-combined-lets-go:
+    name: Build App, Trivy Scan, and DAST
     runs-on: ubuntu-latest
 
     steps:
@@ -90,6 +90,23 @@ jobs:
       run: |
         docker build -t juice-shop:${{ github.sha }} .
         docker tag juice-shop:${{ github.sha }} juice-shop:latest
+
+    - name: Install Trivy
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y wget
+        wget -qO- https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo bash
+
+    - name: Run Trivy scan
+      run: |
+        trivy image --severity HIGH,CRITICAL --exit-code 0 --format table --output trivy-report.txt juice-shop:latest
+
+    - name: Upload Trivy report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: trivy-image-report
+        path: trivy-report.txt
 
     - name: Create Docker network
       run: docker network create zap-net
@@ -131,25 +148,3 @@ jobs:
         docker rm juice-shop-zap
         docker network rm zap-net
 
-  trivity:
-    name: Trivy Scan
-    runs-on: ubuntu-latest
-    needs: docker-dast-combined
-
-    steps:
-    - name: Install Trivy
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y wget
-        wget -qO- https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo bash
-
-    - name: Run Trivy Image Scan
-      run: |
-        trivy image --severity HIGH,CRITICAL --exit-code 0 --format table --output trivy-report.txt juice-shop:latest
-
-    - name: Upload Trivy report
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: trivy-image-report
-        path: trivy-report.txt
