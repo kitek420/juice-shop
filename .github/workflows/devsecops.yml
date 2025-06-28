@@ -1,33 +1,36 @@
 name: Mini Projekt DevSecOps
+
 on:
   push:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+
 jobs:
-  cokolwiek:
+  sca-scan:
+    name: SCA
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
-    
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '18'
-    
+
     - name: Install dependencies
       run: npm install
-    
-    - name: SCA
+
+    - name: Run SCA
       run: |
         npm audit --audit-level moderate | tee sca-report.txt || true
         echo "" | tee -a sca-report.txt
         npm outdated | tee -a sca-report.txt || true
         echo "" | tee -a sca-report.txt
         npm ls --depth=1 | tee -a sca-report.txt || true
-    
+
     - name: Upload SCA report
       uses: actions/upload-artifact@v4
       if: always()
@@ -35,14 +38,30 @@ jobs:
         name: sca-security-report
         path: sca-report.txt
 
-    - name: SAST
+  sast-scan:
+    name: SAST
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Run SAST
       uses: returntocorp/semgrep-action@v1
       with:
         config: auto
         generateSarif: true
       continue-on-error: true
 
-    - name: Secrets Scan
+  secrets-scan:
+    name: Secrets Scan
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Run Secrets Scan
       uses: gitleaks/gitleaks-action@v2
       continue-on-error: true
       with:
@@ -57,21 +76,57 @@ jobs:
         name: secretscan-gitleaks-report
         path: gitleaks.sarif
 
+  dast-zap-scan:
+    name: DAST
+    runs-on: ubuntu-latest
+    services:
+      docker:
+        image: docker:dind
+        options: --privileged
+        ports:
+          - 2375:2375
 
-    - name: Run unit tests
-      run: |
-        export CHROME_BIN=/usr/bin/google-chrome
-        npm test -- --browsers=ChromeHeadlessNoSandbox --single-run --timeout=60000
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-    - name: Build Docker image
+    - name: Start DVWA container
       run: |
-        docker build -t juice-shop:${{ github.sha }} .
-        docker tag juice-shop:${{ github.sha }} juice-shop:latest
+        docker pull vulnerables/web-dvwa:latest
+        docker run -d --name dvwa -p 3000:80 -e PHPIDS_ENABLE=no vulnerables/web-dvwa:latest
 
-    - name: Test Docker container
+    - name: Wait for DVWA to be ready
       run: |
-        docker run -d -p 3000:3000 --name juice-shop-test juice-shop:latest
-        sleep 10
-        curl -f http://localhost:3000 || exit 1
-        docker stop juice-shop-test
-        docker rm juice-shop-test
+        for i in {1..60}; do
+          if curl -s http://localhost:3000/login.php | grep -q "Damn Vulnerable Web Application"; then
+            exit 0
+          else
+            sleep 5
+          fi
+        done
+        exit 1
+
+    - name: Run OWASP ZAP
+      id: zap-scan
+      uses: zaproxy/action-baseline@v0.9.0
+      with:
+        target: "http://localhost:3000"
+        cmd_options: "-I -J report_json.json -w report_md.md -r report_html.html"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload ZAP reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: zap-reports
+        path: |
+          report_json.json
+          report_md.md
+          report_html.html
+
+    - name: Stop and remove DVWA container
+      if: always()
+      run: |
+        docker stop dvwa
+        docker rm dvwa
