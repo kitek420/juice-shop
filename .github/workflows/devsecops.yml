@@ -27,7 +27,7 @@ jobs:
         npm outdated | tee -a sca-report.txt || true
         echo "" | tee -a sca-report.txt
         npm ls --depth=1 | tee -a sca-report.txt || true
-    
+
     - name: Check for critical vulnerabilities
       run: |
         AUDIT_RESULT=$(npm audit --audit-level high --json 2>/dev/null || echo '{"metadata":{"vulnerabilities":{"total":0}}}')
@@ -43,17 +43,29 @@ jobs:
       with:
         name: sca-security-report
         path: sca-report.txt
-    
+
+    - name: Run Semgrep SAST scan
+      run: |
+        curl -sL https://semgrep.dev/install.sh | bash
+        ./semgrep scan --config auto --json > semgrep-report.json || true
+
+    - name: Upload SAST report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: sast-semgrep-report
+        path: semgrep-report.json
+
     - name: Run unit tests
       run: |
         export CHROME_BIN=/usr/bin/google-chrome
         npm test -- --browsers=ChromeHeadlessNoSandbox --single-run --timeout=60000
-    
+
     - name: Build Docker image
       run: |
         docker build -t juice-shop:${{ github.sha }} .
         docker tag juice-shop:${{ github.sha }} juice-shop:latest
-    
+
     - name: Test Docker container
       run: |
         docker run -d -p 3000:3000 --name juice-shop-test juice-shop:latest
