@@ -5,7 +5,7 @@ on:
   pull_request:
     branches: [ master ]
 jobs:
-  wszystko-na-raz-poki-co:
+  cokolwiek:
     runs-on: ubuntu-latest
     
     steps:
