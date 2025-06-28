@@ -91,16 +91,15 @@ jobs:
         docker build -t juice-shop:${{ github.sha }} .
         docker tag juice-shop:${{ github.sha }} juice-shop:latest
 
-    - name: Install Trivy
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y wget
-        wget -qO- https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo bash
-
     - name: Run Trivy scan
-      run: |
-        trivy image --severity HIGH,CRITICAL --exit-code 0 --format table --output trivy-report.txt juice-shop:latest
-
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'juice-shop:latest'
+        format: 'table'
+        severity: 'HIGH,CRITICAL'
+        output: 'trivy-report.txt'
+        exit-code: '0'
+    
     - name: Upload Trivy report
       uses: actions/upload-artifact@v4
       if: always()
