@@ -18,7 +18,7 @@ jobs:
         node-version: '20'
     
     - name: Install dependencies
-      run: npm npm install --ignore-scripts --legacy-peer-deps
+      run: npm install --ignore-scripts --legacy-peer-deps
     
     - name: SCA
       run: |
