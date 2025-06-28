@@ -44,6 +44,31 @@ jobs:
         name: sca-security-report
         path: sca-report.txt
     
+    - name: SAST - Semgrep Security Scan
+      uses: semgrep/semgrep-action@v1
+      with:
+        config: >-
+          p/security-audit
+          p/secrets
+          p/javascript
+          p/typescript
+          p/nodejs
+        generateSarif: "1"
+      continue-on-error: true
+    
+    - name: Upload Samgrep SARIF
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: semgrep.sarif
+    
+    - name: Upload SAST report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: sast-security-report
+        path: semgrep.sarif
+    
     - name: Run unit tests
       run: |
         export CHROME_BIN=/usr/bin/google-chrome
