@@ -39,7 +39,7 @@ jobs:
         path: sca-report.txt
 
   sast-scan:
-    name: SAST
+    name: SAST 
     runs-on: ubuntu-latest
 
     steps:
@@ -76,37 +76,40 @@ jobs:
         name: secretscan-gitleaks-report
         path: gitleaks.sarif
 
-  dast-zap-scan:
-    name: DAST
+  docker-build-and-run:
+    name: Build and Run Docker App
     runs-on: ubuntu-latest
-    services:
-      docker:
-        image: docker:dind
-        options: --privileged
-        ports:
-          - 2375:2375
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v3
 
-    - name: Start DVWA container
+    - name: Build Docker image
       run: |
-        docker pull vulnerables/web-dvwa:latest
-        docker run -d --name dvwa -p 3000:80 -e PHPIDS_ENABLE=no vulnerables/web-dvwa:latest
+        docker build -t juice-shop:${{ github.sha }} .
+        docker tag juice-shop:${{ github.sha }} juice-shop:latest
 
-    - name: Wait for DVWA to be ready
+    - name: Run Docker container
       run: |
-        for i in {1..60}; do
-          if curl -s http://localhost:3000/login.php | grep -q "Damn Vulnerable Web Application"; then
+        docker run -d -p 3000:3000 --name juice-shop-zap juice-shop:latest
+        for i in {1..30}; do
+          if curl -s http://localhost:3000 | grep -q "OWASP Juice Shop"; then
             exit 0
-          else
-            sleep 5
           fi
+          sleep 5
         done
         exit 1
 
-    - name: Run OWASP ZAP
+  dast-zap-scan:
+    name: DAST
+    runs-on: ubuntu-latest
+    needs: docker-build-and-run
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Run OWASP ZAP Scan
       id: zap-scan
       uses: zaproxy/action-baseline@v0.9.0
       with:
@@ -125,8 +128,8 @@ jobs:
           report_md.md
           report_html.html
 
-    - name: Stop and remove DVWA container
+    - name: Stop and remove Juice Shop container
       if: always()
       run: |
-        docker stop dvwa
-        docker rm dvwa
+        docker stop juice-shop-zap
+        docker rm juice-shop-zap
