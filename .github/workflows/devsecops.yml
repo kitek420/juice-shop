@@ -15,16 +15,11 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v3
       with:
-        node-version: '20.18.0'
+        node-version: 20
+        cache: npm
     
-    - name: Clean and reinstall dependencies
-      run: |
-        rm -rf node_modules package-lock.json frontend/node_modules frontend/package-lock.json
-        npm install --legacy-peer-deps --engine-strict=false
-        cd frontend
-        npm install --legacy-peer-deps --engine-strict=false
-        cd ..
-    
+    - name: Install dependencies
+      run: npm install
     
     - name: SCA
       run: |
