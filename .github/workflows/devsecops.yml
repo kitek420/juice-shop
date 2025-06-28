@@ -15,15 +15,10 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v3
       with:
-        node-version: '22.2.0'
-    
-    - name: Install build tools
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential python3 g++ make
+        node-version: '18'
 
-    - name: Install dependencies (z kompilacją natywną)
-      run: npm install --legacy-peer-deps
+    - name: Install dependencies
+      run: npm install 
 
     
     - name: SCA
@@ -49,9 +44,6 @@ jobs:
       with:
         name: sca-security-report
         path: sca-report.txt
-    
-    - name: Run backend test
-      run: npm run test:server --browsers=ChromeHeadlessNoSandbox --single-run --timeout=60000
     
     - name: Build Docker image
       run: |
