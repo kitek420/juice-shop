@@ -83,6 +83,12 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    - name: Inject private key from GitHub Secret
+      run: |
+        mkdir -p encryptionkeys
+        echo "${{ secrets.NEW_PRIVATE }}" > encryptionkeys/new.key
+
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
