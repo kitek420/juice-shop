@@ -77,42 +77,77 @@ jobs:
         path: gitleaks.sarif
 
   docker-build-and-run:
-    name: Build and Run Docker App
+    name: Build and Run Docker App (DinD)
     runs-on: ubuntu-latest
+    services:
+      docker:
+        image: docker:dind
+        options: >-
+          --privileged
+          --network-alias docker
+        ports:
+          - 2375:2375
+
+    env:
+      DOCKER_HOST: tcp://localhost:2375
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
+
+    - name: Set up Docker CLI
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y docker.io
 
     - name: Build Docker image
       run: |
         docker build -t juice-shop:${{ github.sha }} .
         docker tag juice-shop:${{ github.sha }} juice-shop:latest
 
-    - name: Create shared Docker network
+    - name: Create Docker network
       run: docker network create zap-net
 
-    - name: Run Juice Shop container in shared network
+    - name: Run Juice Shop container
       run: |
         docker run -d --network zap-net --name juice-shop-zap -p 3000:3000 juice-shop:latest
         for i in {1..30}; do
           if curl -s http://localhost:3000 | grep -q "OWASP Juice Shop"; then
+            echo "Juice Shop is up!"
             exit 0
           fi
+          echo "Waiting for app..."
           sleep 5
         done
+        echo "App did not respond in time"
         exit 1
 
   dast-zap-scan:
-    name: DAST
+    name: DAST with OWASP ZAP
     runs-on: ubuntu-latest
     needs: docker-build-and-run
+    services:
+      docker:
+        image: docker:dind
+        options: >-
+          --privileged
+          --network-alias docker
+        ports:
+          - 2375:2375
+
+    env:
+      DOCKER_HOST: tcp://localhost:2375
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Run OWASP ZAP Scan in shared network
+    - name: Set up Docker CLI
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y docker.io
+
+    - name: Run OWASP ZAP in zap-net
       run: |
         docker run --network zap-net \
           -v $(pwd):/zap/wrk/:rw \
@@ -130,9 +165,9 @@ jobs:
           report_md.md
           report_html.html
 
-    - name: Stop and remove Juice Shop container
+    - name: Cleanup containers and network
       if: always()
       run: |
-        docker stop juice-shop-zap
-        docker rm juice-shop-zap
-        docker network rm zap-net 
+        docker stop juice-shop-zap || true
+        docker rm juice-shop-zap || true
+        docker network rm zap-net || true
