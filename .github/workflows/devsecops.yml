@@ -39,7 +39,7 @@ jobs:
         path: sca-report.txt
 
   sast-scan:
-    name: SAST 
+    name: SAST
     runs-on: ubuntu-latest
 
     steps:
@@ -89,15 +89,21 @@ jobs:
         docker build -t juice-shop:${{ github.sha }} .
         docker tag juice-shop:${{ github.sha }} juice-shop:latest
 
-    - name: Run Docker container
+    - name: Create shared Docker network
+      run: docker network create zap-net
+
+    - name: Run Juice Shop container in shared network
       run: |
-        docker run -d -p 3000:3000 --name juice-shop-zap juice-shop:latest
+        docker run -d --network zap-net --name juice-shop-zap -p 3000:3000 juice-shop:latest
         for i in {1..30}; do
           if curl -s http://localhost:3000 | grep -q "OWASP Juice Shop"; then
+            echo "Juice Shop is up!"
             exit 0
           fi
+          echo "Waiting for app..."
           sleep 5
         done
+        echo "App did not respond in time"
         exit 1
 
   dast-zap-scan:
@@ -109,14 +115,13 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Run OWASP ZAP Scan
-      id: zap-scan
-      uses: zaproxy/action-baseline@v0.9.0
-      with:
-        target: "http://localhost:3000"
-        cmd_options: "-I -J report_json.json -w report_md.md -r report_html.html"
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Run OWASP ZAP Scan in shared network
+      run: |
+        docker run --network zap-net \
+          -v $(pwd):/zap/wrk/:rw \
+          ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
+          -t http://juice-shop-zap:3000 \
+          -J report_json.json -w report_md.md -r report_html.html -I
 
     - name: Upload ZAP reports
       if: always()
@@ -131,5 +136,6 @@ jobs:
     - name: Stop and remove Juice Shop container
       if: always()
       run: |
-        docker stop juice-shop-zap
-        docker rm juice-shop-zap
+        docker stop juice-shop-zap || true
+        docker rm juice-shop-zap || true
+        docker network rm zap-net || true
