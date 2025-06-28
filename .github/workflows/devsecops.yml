@@ -97,13 +97,10 @@ jobs:
         docker run -d --network zap-net --name juice-shop-zap -p 3000:3000 juice-shop:latest
         for i in {1..30}; do
           if curl -s http://localhost:3000 | grep -q "OWASP Juice Shop"; then
-            echo "Juice Shop is up!"
             exit 0
           fi
-          echo "Waiting for app..."
           sleep 5
         done
-        echo "App did not respond in time"
         exit 1
 
   dast-zap-scan:
@@ -136,6 +133,6 @@ jobs:
     - name: Stop and remove Juice Shop container
       if: always()
       run: |
-        docker stop juice-shop-zap || true
-        docker rm juice-shop-zap || true
-        docker network rm zap-net || true
+        docker stop juice-shop-zap
+        docker rm juice-shop-zap
+        docker network rm zap-net 
