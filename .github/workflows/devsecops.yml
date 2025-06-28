@@ -25,11 +25,9 @@ jobs:
 
     - name: Run SCA
       run: |
-        npm audit --audit-level moderate | tee sca-report.txt || true
-        echo "" | tee -a sca-report.txt
-        npm outdated | tee -a sca-report.txt || true
-        echo "" | tee -a sca-report.txt
-        npm ls --depth=1 | tee -a sca-report.txt || true
+        npm audit --audit-level moderate > sca-report.txt
+        npm outdated >> sca-report.txt
+        npm ls --depth=1 >> sca-report.txt
 
     - name: Upload SCA report
       uses: actions/upload-artifact@v4
@@ -76,24 +74,16 @@ jobs:
         name: secretscan-gitleaks-report
         path: gitleaks.sarif
 
-  docker-build-and-run:
-    name: Build and Run Docker
+  docker-dast-combined:
+    name: Build App + Run ZAP (DAST)
     runs-on: ubuntu-latest
-    services:
-      docker:
-        image: docker:dind
-        options: >-
-          --privileged
-          --network-alias docker
-        ports:
-          - 2375:2375
-
-    env:
-      DOCKER_HOST: tcp://localhost:2375
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
 
     - name: Build Docker image
       run: |
@@ -107,39 +97,11 @@ jobs:
       run: |
         docker run -d --network zap-net --name juice-shop-zap -p 3000:3000 juice-shop:latest
         for i in {1..30}; do
-          if curl -s http://localhost:3000 | grep -q "OWASP Juice Shop"; then
-            exit 0
-          fi
+          curl -s http://localhost:3000 | grep -q "OWASP Juice Shop" && break
           sleep 5
         done
-        exit 1
 
-  dast-zap-scan:
-    name: DAST with OWASP ZAP
-    runs-on: ubuntu-latest
-    needs: docker-build-and-run
-    services:
-      docker:
-        image: docker:dind
-        options: >-
-          --privileged
-          --network-alias docker
-        ports:
-          - 2375:2375
-
-    env:
-      DOCKER_HOST: tcp://localhost:2375
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-
-    - name: Set up Docker CLI
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y docker.io
-
-    - name: Run OWASP ZAP in zap-net
+    - name: Run OWASP ZAP DAST scan
       run: |
         docker run --network zap-net \
           -v $(pwd):/zap/wrk/:rw \
@@ -162,32 +124,4 @@ jobs:
       run: |
         docker stop juice-shop-zap
         docker rm juice-shop-zap
-        docker network rm zap-net 
-
-  trivy-scan:
-    name: Image Scan with Trivy
-    runs-on: ubuntu-latest
-    needs: docker-build-and-run
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-
-    - name: Install Trivy
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y wget
-        wget -qO trivy.deb https://github.com/aquasecurity/trivy/releases/latest/download/trivy_0.50.1_Linux-64bit.deb
-        sudo dpkg -i trivy.deb
-
-    - name: Run Trivy scan on juice-shop:latest
-      run: |
-        trivy image --severity HIGH,CRITICAL --exit-code 0 --format table -o trivy-report.txt juice-shop:latest
-
-    - name: Upload Trivy Report
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: trivy-image-scan
-        path: trivy-report.txt
-
+        docker network rm zap-net
