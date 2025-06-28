@@ -128,7 +128,7 @@ jobs:
       run: |
         docker run --rm --network zap-net \
           -v /tmp:/zap/wrk/:rw \
-          owasp/zap2docker-stable zap-baseline.py \
+          zaproxy/zap-stable zap-baseline.py \
           -t http://juice-shop-zap:3000 \
           -J report_json.json -w report_md.md -r report_html.html -I
 
