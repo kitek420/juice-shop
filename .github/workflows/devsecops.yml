@@ -45,16 +45,17 @@ jobs:
         path: sca-report.txt
 
     - name: Run Semgrep SAST scan
-      run: |
-        curl -sL https://semgrep.dev/install.sh | bash
-        ./semgrep scan --config auto --json > semgrep-report.json || true
+      uses: returntocorp/semgrep-action@v1
+      with:
+        config: auto
+        generateSarif: true
 
     - name: Upload SAST report
       uses: actions/upload-artifact@v4
       if: always()
       with:
         name: sast-semgrep-report
-        path: semgrep-report.json
+        path: semgrep.sarif
 
     - name: Run unit tests
       run: |
